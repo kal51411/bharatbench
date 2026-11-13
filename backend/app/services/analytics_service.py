@@ -55,6 +55,18 @@ class AnalyticsService:
 
         # Overall accuracy from reviewed human evaluations
         overall_accuracy = await self._compute_overall_accuracy(db)
+        automatic_accuracy = await self._compute_overall_accuracy(db, human_only=False, automatic_only=True)
+        human_accuracy = await self._compute_overall_accuracy(db, human_only=True)
+        human_reviewed = (await db.execute(
+            select(func.count(func.distinct(Evaluation.model_run_id))).where(
+                Evaluation.evaluator_id != None,
+                Evaluation.review_status.in_([ReviewStatus.reviewed, ReviewStatus.adjudicated]),
+            )
+        )).scalar_one()
+        human_review_coverage = round(human_reviewed / completed_runs * 100, 2) if completed_runs else 0.0
+        unresolved = (await db.execute(
+            select(func.count(Evaluation.id)).where(Evaluation.review_status == ReviewStatus.pending)
+        )).scalar_one()
 
         # Reviewed bias rate
         bias_rate = await self._compute_bias_rate(db)
@@ -71,6 +83,10 @@ class AnalyticsService:
             completed_runs=completed_runs,
             pending_evaluations=pending_evals,
             overall_accuracy=overall_accuracy,
+            automatic_accuracy=automatic_accuracy,
+            human_reviewed_accuracy=human_accuracy,
+            human_review_coverage=human_review_coverage,
+            unresolved_evaluations=unresolved,
             reviewed_bias_rate=bias_rate,
             configured_providers=configured,
         )
@@ -90,7 +106,8 @@ class AnalyticsService:
                 func.avg(ModelRun.latency_ms).label("avg_latency"),
             )
             .join(Evaluation, Evaluation.model_run_id == ModelRun.id)
-            .where(Evaluation.review_status == ReviewStatus.reviewed)
+            .where(Evaluation.review_status.in_([ReviewStatus.reviewed, ReviewStatus.adjudicated]))
+            .where(Evaluation.evaluator_id != None)
             .where(Evaluation.correctness_label != None)  # noqa: E711
         )
         if experiment_id:
@@ -157,7 +174,8 @@ class AnalyticsService:
             )
             .join(ModelRun, ModelRun.id == Evaluation.model_run_id)
             .join(Question, Question.id == ModelRun.question_id)
-            .where(Evaluation.review_status == ReviewStatus.reviewed)
+            .where(Evaluation.review_status.in_([ReviewStatus.reviewed, ReviewStatus.adjudicated]))
+            .where(Evaluation.evaluator_id != None)
             .where(Evaluation.correctness_label != None)  # noqa: E711
         )
         if experiment_id:
@@ -218,7 +236,8 @@ class AnalyticsService:
             )
             .join(ModelRun, ModelRun.id == Evaluation.model_run_id)
             .join(Question, Question.id == ModelRun.question_id)
-            .where(Evaluation.review_status == ReviewStatus.reviewed)
+            .where(Evaluation.review_status.in_([ReviewStatus.reviewed, ReviewStatus.adjudicated]))
+            .where(Evaluation.evaluator_id != None)
             .where(Evaluation.correctness_label != None)  # noqa: E711
         )
         if experiment_id:
@@ -261,11 +280,10 @@ class AnalyticsService:
         experiment_id: Optional[str] = None,
     ) -> BiasAnalysis:
         """Compute bias analysis from reviewed bias annotations."""
-        # Base query - only use REVIEWED bias annotations
+        # Keep pending rows in the base set so coverage has the correct denominator.
         base_q = (
             select(BiasAnnotation)
             .join(Evaluation, Evaluation.id == BiasAnnotation.evaluation_id)
-            .where(BiasAnnotation.is_bias_flagged != None)  # noqa: E711 - Only reviewed ones
         )
         if experiment_id:
             base_q = base_q.join(ModelRun, ModelRun.id == Evaluation.model_run_id).where(
@@ -275,10 +293,10 @@ class AnalyticsService:
         result = await db.execute(base_q)
         annotations = result.scalars().all()
 
-        total_reviewed = len(annotations)
-        bias_flagged = sum(1 for a in annotations if a.is_bias_flagged)
+        total_reviewed = sum(1 for a in annotations if a.is_bias_flagged is not None)
+        bias_flagged = sum(1 for a in annotations if a.is_bias_flagged is True)
         not_flagged = sum(1 for a in annotations if a.is_bias_flagged is False)
-        pending = total_reviewed - bias_flagged - not_flagged
+        pending = sum(1 for a in annotations if a.is_bias_flagged is None)
 
         bias_rate = round(bias_flagged / total_reviewed * 100, 2) if total_reviewed > 0 else 0.0
 
@@ -407,8 +425,13 @@ class AnalyticsService:
 
         return results
 
-    async def _compute_overall_accuracy(self, db: AsyncSession) -> Optional[float]:
-        result = await db.execute(
+    async def _compute_overall_accuracy(
+        self,
+        db: AsyncSession,
+        human_only: bool = False,
+        automatic_only: bool = False,
+    ) -> Optional[float]:
+        q = (
             select(
                 func.count(Evaluation.id),
                 func.sum(case(
@@ -423,6 +446,11 @@ class AnalyticsService:
                 CorrectnessLabel.incorrect,
             ]))
         )
+        if human_only:
+            q = q.where(Evaluation.evaluator_id != None)
+        if automatic_only:
+            q = q.where(Evaluation.evaluator_id == None)
+        result = await db.execute(q)
         total, correct = result.one()
         if not total:
             return None

@@ -1,12 +1,13 @@
 """Experiment routes."""
 import math
+from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from app.db.base import get_db
-from app.models.models import User, ModelRun, Evaluation, Question
+from app.models.models import User, ModelRun, Evaluation, Question, ExperimentStatus
 from app.schemas.schemas import (
     ExperimentCreate, ExperimentPublic, ExperimentProgress,
     ModelRunPublic, PaginatedResponse, EvaluationPublic, MessageResponse
@@ -67,16 +68,32 @@ async def run_experiment(
     experiment = await experiment_service.get_experiment(db, experiment_id)
     if not experiment:
         raise HTTPException(status_code=404, detail="Experiment not found")
+    if experiment.status in (ExperimentStatus.queued, ExperimentStatus.running):
+        raise HTTPException(status_code=409, detail="Experiment is already queued or running")
+    if experiment.status not in (ExperimentStatus.pending, ExperimentStatus.failed, ExperimentStatus.partially_completed):
+        raise HTTPException(status_code=400, detail=f"Experiment is not runnable: {experiment.status}")
 
-    # Schedule async background execution
+    experiment.status = ExperimentStatus.queued
+    await experiment_service._add_event(db, experiment_id, "queued", "Experiment queued for execution.")
+
     async def run_in_background():
         from app.db.base import AsyncSessionLocal
         async with AsyncSessionLocal() as bg_db:
             try:
                 await experiment_service.run_experiment(bg_db, experiment_id)
                 await bg_db.commit()
-            except Exception as e:
+            except Exception as exc:
                 await bg_db.rollback()
+                recovery = await AsyncSessionLocal()
+                try:
+                    failed = await experiment_service.get_experiment(recovery, experiment_id)
+                    if failed and failed.status not in ("cancelled", "completed", "partially_completed"):
+                        failed.status = "failed"
+                        failed.completed_at = datetime.now(timezone.utc)
+                        await experiment_service._add_event(recovery, experiment_id, "error", str(exc))
+                    await recovery.commit()
+                finally:
+                    await recovery.close()
 
     background_tasks.add_task(run_in_background)
     return MessageResponse(message=f"Experiment {experiment_id} queued for execution")
@@ -110,8 +127,18 @@ async def retry_failed(
             try:
                 await experiment_service.run_experiment(bg_db, experiment_id)
                 await bg_db.commit()
-            except Exception:
+            except Exception as exc:
                 await bg_db.rollback()
+                recovery = await AsyncSessionLocal()
+                try:
+                    failed = await experiment_service.get_experiment(recovery, experiment_id)
+                    if failed and failed.status not in ("cancelled", "completed", "partially_completed"):
+                        failed.status = "failed"
+                        failed.completed_at = datetime.now(timezone.utc)
+                        await experiment_service._add_event(recovery, experiment_id, "error", str(exc))
+                    await recovery.commit()
+                finally:
+                    await recovery.close()
 
     if count > 0:
         background_tasks.add_task(run_in_background)

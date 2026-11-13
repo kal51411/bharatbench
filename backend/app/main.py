@@ -31,15 +31,15 @@ async def lifespan(app: FastAPI):
 
 
 async def startup():
-    """Initialize database tables and seed admin user."""
+    """Initialize development tables and seed the local admin user."""
     from app.db.base import engine, Base
     from app.models import models  # Ensure models are imported
-    from sqlalchemy import inspect
-    import sqlalchemy
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        logger.info("Database tables created/verified")
+    if settings.AUTO_CREATE_TABLES:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            logger.info("Development database tables created/verified")
+    else:
+        logger.info("Skipping create_all; run Alembic migrations before starting")
 
     # Seed admin user if not exists
     from app.db.base import AsyncSessionLocal

@@ -4,7 +4,7 @@ All settings read from environment variables with defaults for local development
 """
 from typing import List, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 import secrets
 
 
@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
 
     # Security
-    SECRET_KEY: str = secrets.token_urlsafe(32)
+    SECRET_KEY: str = ""
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
 
@@ -65,7 +65,8 @@ class Settings(BaseSettings):
     # Admin seed user (created on first startup)
     ADMIN_USERNAME: str = "admin"
     ADMIN_EMAIL: str = "admin@bharatbench.local"
-    ADMIN_PASSWORD: str = "BharatBench@2024"
+    ADMIN_PASSWORD: str = ""
+    AUTO_CREATE_TABLES: bool = True
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
@@ -73,6 +74,21 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(",")]
         return v
+
+    @model_validator(mode="after")
+    def validate_security_defaults(self):
+        if self.ENVIRONMENT.lower() not in {"development", "test"}:
+            if len(self.SECRET_KEY) < 32:
+                raise ValueError("SECRET_KEY must be configured with at least 32 characters outside development")
+            if len(self.ADMIN_PASSWORD) < 12:
+                raise ValueError("ADMIN_PASSWORD must be configured outside development")
+            self.AUTO_CREATE_TABLES = False
+        else:
+            if not self.SECRET_KEY:
+                self.SECRET_KEY = secrets.token_urlsafe(32)
+            if not self.ADMIN_PASSWORD:
+                self.ADMIN_PASSWORD = "BharatBench@2024"
+        return self
 
 
 settings = Settings()

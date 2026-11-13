@@ -181,18 +181,18 @@ class EvaluationService:
         db.add(evaluation)
         await db.flush()
 
-        # Create bias annotation if provided
-        if eval_in.is_bias_flagged is not None:
-            bias = BiasAnnotation(
-                evaluation_id=evaluation.id,
-                is_bias_flagged=eval_in.is_bias_flagged,
-                bias_category=eval_in.bias_category,
-                severity=eval_in.bias_severity,
-                evidence=eval_in.bias_evidence,
-                reviewer_notes=eval_in.bias_reviewer_notes,
-            )
-            db.add(bias)
-            await db.flush()
+        # Every human review creates a bias-review record. A null flag is
+        # intentionally pending and remains separate from automated scoring.
+        bias = BiasAnnotation(
+            evaluation_id=evaluation.id,
+            is_bias_flagged=eval_in.is_bias_flagged,
+            bias_category=eval_in.bias_category,
+            severity=eval_in.bias_severity,
+            evidence=eval_in.bias_evidence,
+            reviewer_notes=eval_in.bias_reviewer_notes,
+        )
+        db.add(bias)
+        await db.flush()
 
         await db.refresh(evaluation)
         return evaluation

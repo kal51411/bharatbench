@@ -360,6 +360,10 @@ class OverviewStats(BaseModel):
     completed_runs: int
     pending_evaluations: int
     overall_accuracy: Optional[float]
+    automatic_accuracy: Optional[float] = None
+    human_reviewed_accuracy: Optional[float] = None
+    human_review_coverage: Optional[float] = None
+    unresolved_evaluations: int = 0
     reviewed_bias_rate: Optional[float]
     configured_providers: List[str]
 
