@@ -4,7 +4,7 @@ All settings read from environment variables with defaults for local development
 """
 from typing import List, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import field_validator, model_validator
+from pydantic import model_validator
 import secrets
 
 
@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     CELERY_TASK_ALWAYS_EAGER: bool = True
 
     # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:5173"]
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173"
 
     # Upload
     MAX_UPLOAD_SIZE_MB: int = 10
@@ -68,12 +68,9 @@ class Settings(BaseSettings):
     ADMIN_PASSWORD: str = ""
     AUTO_CREATE_TABLES: bool = True
 
-    @field_validator("CORS_ORIGINS", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, v):
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",")]
-        return v
+    @property
+    def cors_origins(self) -> List[str]:
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
     @model_validator(mode="after")
     def validate_security_defaults(self):
