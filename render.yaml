@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: bharatbench-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -e backend
+    startCommand: uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: development
+      - key: DATABASE_URL
+        value: sqlite+aiosqlite:///./bharatbench.db
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_PASSWORD
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: https://bharatbench-hwn4prh4o-forger5.vercel.app,http://localhost:5173
