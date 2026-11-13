@@ -17,3 +17,5 @@ services:
         generateValue: true
       - key: CORS_ORIGINS
         value: https://bharatbench-hwn4prh4o-forger5.vercel.app,http://localhost:5173
+      - key: DEMO_DATASET_ENABLED
+        value: "true"

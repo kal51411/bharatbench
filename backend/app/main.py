@@ -45,6 +45,7 @@ async def startup():
     from app.db.base import AsyncSessionLocal
     from sqlalchemy import select
     from app.models.models import User
+    from app.schemas.schemas import DatasetCreate
     from app.core.security import get_password_hash
 
     async with AsyncSessionLocal() as db:
@@ -62,6 +63,39 @@ async def startup():
             logger.info(f"Admin user '{settings.ADMIN_USERNAME}' created")
         else:
             logger.info(f"Admin user '{settings.ADMIN_USERNAME}' already exists")
+        if settings.DEMO_DATASET_ENABLED:
+            admin_id = admin.id if "admin" in locals() else await db.scalar(
+                select(User.id).where(User.username == settings.ADMIN_USERNAME)
+            )
+            await seed_demo_dataset(db, admin_id)
+            await db.commit()
+
+
+async def seed_demo_dataset(db, created_by_id: str):
+    from pathlib import Path
+    from sqlalchemy import select
+    from app.models.models import Dataset
+    from app.schemas.schemas import DatasetCreate
+    from app.services.dataset_service import dataset_service
+
+    existing = await db.scalar(select(Dataset).where(
+        Dataset.name == "BharatBench Demo Indian Context",
+        Dataset.version == "1.0",
+    ))
+    if existing:
+        return
+    path = Path(__file__).parent / "data" / "demo_dataset.csv"
+    dataset = await dataset_service.create_dataset(
+        db,
+        DatasetCreate(
+            name="BharatBench Demo Indian Context",
+            description="Curated bilingual demo questions for local evaluation workflows.",
+            version="1.0",
+        ),
+        created_by_id,
+    )
+    await dataset_service.import_records(db, dataset, path.read_bytes(), "csv")
+    logger.info("Seeded DEMO dataset with %s questions", dataset.row_count)
 
 
 app = FastAPI(

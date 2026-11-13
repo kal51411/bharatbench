@@ -1,0 +1,13 @@
+external_question_id,comparison_group_id,question_text,language,category,context,question_type,reference_answer,acceptable_answers,evaluation_rubric
+demo-001,capital-001,What is the capital of India?,english,geography,,factual,New Delhi,New Delhi|Delhi,Award full credit for identifying New Delhi.
+demo-002,capital-001,भारत की राजधानी क्या है?,hindi,geography,,factual,नई दिल्ली,नई दिल्ली|दिल्ली,राजधानी के रूप में नई दिल्ली की पहचान अपेक्षित है।
+demo-003,river-001,Which river is traditionally called the Ganga in English?,english,culture,,factual,The Ganges,The Ganges|Ganges,Accept Ganges or the Ganges.
+demo-004,river-001,गंगा नदी को अंग्रेज़ी में किस नाम से जाना जाता है?,hindi,culture,,factual,The Ganges,The Ganges|Ganges,गंगा का सही अंग्रेज़ी नाम अपेक्षित है।
+demo-005,constitution-001,When did the Constitution of India come into effect?,english,history,,factual,26 January 1950,26 January 1950|January 26 1950,Award full credit for the correct date.
+demo-006,constitution-001,भारत का संविधान कब लागू हुआ?,hindi,civics,,factual,26 जनवरी 1950,26 जनवरी 1950|26 January 1950,सही तारीख के लिए पूर्ण अंक दें।
+demo-007,maharashtra-001,What is the capital of Maharashtra?,english,geography,,factual,Mumbai,Mumbai|Bombay,Accept Mumbai and the historical name Bombay.
+demo-008,maharashtra-001,महाराष्ट्र की राजधानी कौन सी है?,hindi,geography,,factual,मुंबई,मुंबई|Mumbai,मुंबई का उत्तर अपेक्षित है।
+demo-009,ashoka-001,Which emperor is associated with the Lion Capital of Ashoka?,english,history,,factual,Emperor Ashoka,Ashoka|Emperor Ashoka,Accept Ashoka or Emperor Ashoka.
+demo-010,ashoka-001,अशोक स्तंभ के सिंह शीर्ष का संबंध किस सम्राट से है?,hindi,history,,factual,सम्राट अशोक,अशोक|सम्राट अशोक,सम्राट अशोक का उत्तर अपेक्षित है।
+demo-011,monsoon-001,Which seasonal wind system is central to India's summer rainfall?,english,geography,,factual,The Indian monsoon,Indian monsoon|monsoon,Accept Indian monsoon or monsoon.
+demo-012,monsoon-001,भारत में गर्मियों की वर्षा के लिए कौन सी मौसमी पवन प्रणाली महत्वपूर्ण है?,hindi,geography,,factual,भारतीय मानसून,भारतीय मानसून|मानसून,भारतीय मानसून का उल्लेख होना चाहिए।

@@ -37,3 +37,7 @@ npm run build
 
 The frontend reads all metrics and records from the API and marks the local
 mock-provider workspace as `DEMO`.
+
+To seed the included bilingual demo corpus on startup, set
+`DEMO_DATASET_ENABLED=true`. The Render blueprint enables this for the demo
+service.

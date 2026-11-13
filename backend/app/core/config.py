@@ -67,6 +67,7 @@ class Settings(BaseSettings):
     ADMIN_EMAIL: str = "admin@bharatbench.local"
     ADMIN_PASSWORD: str = ""
     AUTO_CREATE_TABLES: bool = True
+    DEMO_DATASET_ENABLED: bool = False
 
     @property
     def cors_origins(self) -> List[str]:
